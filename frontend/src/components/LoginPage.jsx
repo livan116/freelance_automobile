@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
-import {Link} from "react-router-dom"
-import img from "../assets/login.webp"
+import { Link, useNavigate } from "react-router-dom";
+import img from "../assets/login.webp";
+import img2 from "../assets/logo.png"
+import axios from 'axios';
+
+// Configure axios with your backend URL
+const API_URL = 'http://localhost:5000/api';
 
 const LoginPage = () => {
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     email: '',
@@ -14,6 +20,8 @@ const LoginPage = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState('');
 
   const toggleForm = () => {
     setIsLogin(!isLogin);
@@ -26,6 +34,7 @@ const LoginPage = () => {
     });
     setEmailError('');
     setPasswordError('');
+    setServerError('');
   };
 
   const validateBusinessEmail = (email) => {
@@ -62,8 +71,9 @@ const LoginPage = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setServerError('');
     
     // Email validation
     if (!formData.email.includes('@') || !validateBusinessEmail(formData.email)) {
@@ -77,36 +87,105 @@ const LoginPage = () => {
       return;
     }
     
-    // Form submission logic would go here
-    console.log(isLogin ? 'Login attempt' : 'Signup attempt', formData);
+    try {
+      setLoading(true);
+      
+      if (isLogin) {
+        // Handle login
+        const response = await axios.post(`${API_URL}/login`, {
+          email: formData.email,
+          password: formData.password
+        });
+        
+        // Save user data to localStorage if rememberMe is checked
+        if (rememberMe) {
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+        } else {
+          sessionStorage.setItem('user', JSON.stringify(response.data.user));
+        }
+        
+        // Redirect to dashboard or home page
+        navigate('/dashboard');
+      } else {
+        // Handle signup
+        await axios.post(`${API_URL}/signup`, {
+          email: formData.email,
+          password: formData.password,
+          personName: formData.personName,
+          businessName: formData.businessName
+        });
+        
+        // Show success and switch to login
+        alert('Registration successful! Please log in.');
+        setIsLogin(true);
+        setFormData({
+          ...formData,
+          password: '',
+          confirmPassword: ''
+        });
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      if (error.response && error.response.data && error.response.data.error) {
+        setServerError(error.response.data.error);
+      } else {
+        setServerError('An error occurred. Please try again later.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!formData.email || !formData.email.includes('@')) {
+      setEmailError('Please enter your email to reset password');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      await axios.post(`${API_URL}/reset-password`, { email: formData.email });
+      alert('If your email is registered, you will receive password reset instructions.');
+    } catch (error) {
+      console.error('Password reset error:', error);
+      setServerError('Unable to process password reset request');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-
-
     <div className="flex flex-col ">
-      {/* Header with logo */}
-      {/* <div className="w-full bg-white p-4 flex justify-center items-center border-b shadow-sm">
-        <div className="max-w-7xl w-full px-4">
-          <img 
-            src={img} 
-            alt="HD Hyundai Construction Equipment" 
-            className="h-8 md:h-10"
-          />
-        </div>
-      </div> */}
-      
-      {/* Main content */}
-      <div className="flex-grow flex flex-col md:flex-row items-start overflow-hidden md:px-24">
-        {/* Background image section */}
-        <div className="hidden md:block p-10 md:w-3/5 lg:w-3/4 flex items-center justify-center relative">
-        <h2 className='lg:text-5xl text-2xl md:text-4xl my-4 font-semibold logo' >Off-Highway Parts Depot</h2>
-          <div className='bg-blue-500' >
+      {/* Logo and Company Name - Visible on all devices */}
+      <div className='h-20' >
+      <img src={img2} alt="logo" className='h-full md:px-32' />
+      </div>
+      <div className="bg-white p-4 md:hidden text-center">
+        <h1 className='text-2xl font-semibold logo'>Off-Highway Parts Depot</h1>
+        <h2 className='text-xl font-semibold logo'>Drivetrain Products</h2>
+        <div className='bg-blue-500 mt-2'>
           <img 
             src={img} 
             alt="Construction equipment by the beach" 
-            className="w-full h-1/2 object-cover"
+            className="w-full object-cover h-32"
           />    
+        </div>
+      </div>
+
+      {/* Main content */}
+      
+      <div className="flex-grow flex flex-col md:flex-row items-start overflow-hidden md:px-24">
+     
+        {/* Background image section - Only visible on md and larger screens */}
+        <div className="hidden md:block p-10 md:w-3/5 lg:w-3/4 flex items-center justify-center relative">
+          <h1 className='lg:text-5xl text-2xl md:text-4xl my-4 font-semibold logo'>Off-Highway Parts Depot</h1>
+          <h2 className='lg:text-4xl text-2xl md:text-3xl my-4 font-semibold logo'>Drivetrain Products</h2>
+          <div className='bg-blue-500'>
+            <img 
+              src={img} 
+              alt="Construction equipment by the beach" 
+              className="w-full h-1/2 object-cover"
+            />    
           </div>
           <div className="absolute inset-0 bg-gradient-to-b from-navy-900/30 to-navy-900/70">
             <div className="absolute bottom-16 left-16 text-white">
@@ -125,6 +204,12 @@ const LoginPage = () => {
             <h1 className="text-2xl font-bold mb-8 text-center text-gray-800">
               {isLogin ? "Dealer Portal - LOGIN" : "Dealer Portal - SIGN UP"}
             </h1>
+            
+            {serverError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <p>{serverError}</p>
+              </div>
+            )}
             
             <form onSubmit={handleSubmit} className="space-y-5">
               {!isLogin && (
@@ -241,12 +326,16 @@ const LoginPage = () => {
                   </div>
                   
                   <div className="text-sm">
-                    <a href="#" className="text-blue-600 hover:text-blue-800 flex items-center group transition-colors">
+                    <button 
+                      type="button"
+                      onClick={handlePasswordReset}
+                      className="text-blue-600 hover:text-blue-800 flex items-center group transition-colors"
+                    >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 group-hover:text-blue-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                       </svg>
                       Password Find
-                    </a>
+                    </button>
                   </div>
                 </div>
               )}
@@ -264,8 +353,13 @@ const LoginPage = () => {
               <button
                 type="submit"
                 className="w-full text-white bg-blue-500 py-3 px-4 rounded-md hover:bg-navy-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors font-medium shadow-md"
+                disabled={loading}
               >
-                {isLogin ? "Login" : "Sign Up"}
+                {loading ? (
+                  "Processing..."
+                ) : (
+                  isLogin ? "Login" : "Sign Up"
+                )}
               </button>
               
               {isLogin && (
@@ -319,17 +413,16 @@ const LoginPage = () => {
       
       {/* Footer */}
       <div className="bg-gray-100 py-4 px-6 text-center text-xs text-gray-600 border-t">
-        <div className="max-w-7xl flex flex-col md:flex-row items-center">
+        <div className="max-w-7xl flex flex-col md:flex-row items-center justify-center md:justify-between">
           <div>
             Copyright © 2025 mechaical Co., Ltd. All Rights Reserved.
           </div>
           <div className="mt-2 md:mt-0">
-            <a href='/home' className="text-blue-600 hover:text-blue-800 transition-colors">Privacy Policy</a>
+            <Link to="/home" className="text-blue-600 hover:text-blue-800 transition-colors">Privacy Policy</Link>
           </div>
         </div>
       </div>
     </div>
-
   );
 };
 

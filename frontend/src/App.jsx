@@ -1,13 +1,19 @@
-import React from 'react'
-import LoginPage from './components/LoginPage'
+// App.js or index.js
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import LoginPage from './components/LoginPage';
+import Dashboard from './components/Dashboard'; // Create this component if not already existing
 
-const App = () => {
+function App() {
   return (
-    <div>
-    <LoginPage/>
-
-    </div>
-  )
+    <Router>
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        {/* Add more routes as needed */}
+      </Routes>
+    </Router>
+  );
 }
 
-export default App
+export default App;
