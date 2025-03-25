@@ -5,10 +5,15 @@ import bodyParser from 'body-parser';
 import serverless from "serverless-http";
 import bcrypt from 'bcrypt';
 import fs from 'fs';
+import { Client } from 'basic-ftp';
+import { fileURLToPath } from 'url';
 import path from 'path';
-import { Client as basicFtp } from 'basic-ftp';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
-// const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
@@ -95,7 +100,8 @@ async function ensureUsersCSVExists(client) {
 
 // Function to append user data to CSV file
 async function appendUserToCSV(userData) {
-  const client = new basicFtp.Client();
+  const client = new Client();
+
   client.ftp.verbose = true;
   
   let tempDownloadPath = path.join(__dirname, `temp_users_${Date.now()}.csv`);
@@ -163,7 +169,8 @@ async function appendUserToCSV(userData) {
 
 // Function to get all users from CSV
 async function getAllUsersFromCSV() {
-  const client = new basicFtp.Client();
+  const client = new Client();
+
   client.ftp.verbose = true;
   
   let tempFilePath = path.join(__dirname, `temp_users_download_${Date.now()}.csv`);
@@ -411,7 +418,8 @@ app.post('/api/reset-password', async (req, res) => {
 
 // Test FTP connection endpoint
 app.get('/api/test-ftp', async (req, res) => {
-  const client = new basicFtp.Client();
+  const client = new Client();
+
   client.ftp.verbose = true;
   
   try {
@@ -476,9 +484,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// app.listen(PORT, () => {
-//   console.log(`Server running on port ${PORT}`);
-//   console.log(`API available at: http://localhost:${PORT}/api`);
-// });
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`API available at: http://localhost:${PORT}/api`);
+});
 
-app.use('/api/',router)
