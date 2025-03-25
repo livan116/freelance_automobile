@@ -5,7 +5,6 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import bcrypt from 'bcrypt';
 import fs from 'fs';
-
 import { Client } from 'basic-ftp';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -21,7 +20,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: '*',
+  origin: '*', // Allow requests from any origin in development
   credentials: true
 }));
 app.use(bodyParser.json());
@@ -38,15 +37,17 @@ const ftpConfig = {
   port: 21,
   user: "dev@offhighwaypartsdepot.com",
   password: "I6*xh%ww{wL(",
-  secure: false
+  secure: false // Set to true for explicit FTPS if needed
 };
 
 // Function to ensure users directory exists
 async function ensureUserDirectoryExists(client) {
   try {
+    // Check current directory
     const currentDir = await client.pwd();
     console.log(`Currently in directory: ${currentDir}`);
     
+    // Try to navigate to users directory
     try {
       await client.cd('users');
       return true;
@@ -69,17 +70,20 @@ async function ensureUserDirectoryExists(client) {
 
 // Function to check if users.csv exists and create it if not
 async function ensureUsersCSVExists(client) {
-  const tempFilePath = path.join(process.cwd(), 'temp_users_csv_check.csv');
+  const tempFilePath = path.join(__dirname, 'temp_users_csv_check.csv');
   
   try {
+    // List current directory to see if users.csv exists
     const files = await client.list();
     const csvExists = files.some(file => file.name === 'users.csv');
     
     if (!csvExists) {
       console.log("users.csv does not exist, creating it...");
+      // Create a temporary CSV file with headers
       const headers = "email,password,personName,businessName,createdAt\n";
       fs.writeFileSync(tempFilePath, headers);
       
+      // Upload the CSV file with headers
       await client.uploadFrom(tempFilePath, 'users.csv');
       console.log("Created users.csv with headers");
     } else {
@@ -90,6 +94,7 @@ async function ensureUsersCSVExists(client) {
     console.error(`Error ensuring users.csv exists: ${error.message}`);
     return false;
   } finally {
+    // Clean up temporary file
     if (fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
     }
@@ -98,11 +103,12 @@ async function ensureUsersCSVExists(client) {
 
 // Function to append user data to CSV file
 async function appendUserToCSV(userData) {
-    const client = new Client();
+  const client = new Client();
+
   client.ftp.verbose = true;
   
-  let tempDownloadPath = path.join(process.cwd(), `temp_users_${Date.now()}.csv`);
-  let tempUploadPath = path.join(process.cwd(), `temp_users_upload_${Date.now()}.csv`);
+  let tempDownloadPath = path.join(__dirname, `temp_users_${Date.now()}.csv`);
+  let tempUploadPath = path.join(__dirname, `temp_users_upload_${Date.now()}.csv`);
   
   try {
     console.log("Connecting to FTP server...");
@@ -111,22 +117,32 @@ async function appendUserToCSV(userData) {
       secureOptions: { rejectUnauthorized: false }
     });
     
+    // Ensure users directory exists
     const userDirExists = await ensureUserDirectoryExists(client);
     if (!userDirExists) {
       throw new Error("Failed to ensure users directory exists");
     }
     
+    // Ensure users.csv exists
     await ensureUsersCSVExists(client);
     
+    // Download current users.csv
     console.log("Downloading current users.csv...");
     await client.downloadTo(tempDownloadPath, 'users.csv');
     
+    // Read the current content
     let currentContent = fs.readFileSync(tempDownloadPath, 'utf8');
+    
+    // Format new user data as CSV row
     const csvRow = `${userData.email},${userData.password},${userData.personName.replace(/,/g, ';')},${userData.businessName.replace(/,/g, ';')},${userData.createdAt}\n`;
+    
+    // Append the new user data
     currentContent += csvRow;
     
+    // Write updated content to upload temp file
     fs.writeFileSync(tempUploadPath, currentContent);
     
+    // Upload the updated file
     console.log("Uploading updated users.csv...");
     await client.uploadFrom(tempUploadPath, 'users.csv');
     
@@ -136,6 +152,7 @@ async function appendUserToCSV(userData) {
     console.error('Error appending user to CSV:', error);
     throw error;
   } finally {
+    // Clean up temporary files
     [tempDownloadPath, tempUploadPath].forEach(filePath => {
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
@@ -143,6 +160,7 @@ async function appendUserToCSV(userData) {
       }
     });
     
+    // Close FTP connection
     try {
       await client.close();
       console.log("FTP connection closed");
@@ -154,11 +172,11 @@ async function appendUserToCSV(userData) {
 
 // Function to get all users from CSV
 async function getAllUsersFromCSV() {
-    const client = new Client();
+  const client = new Client();
 
   client.ftp.verbose = true;
   
-  let tempFilePath = path.join(process.cwd(), `temp_users_download_${Date.now()}.csv`);
+  let tempFilePath = path.join(__dirname, `temp_users_download_${Date.now()}.csv`);
   
   try {
     console.log("Connecting to FTP to retrieve users...");
@@ -167,6 +185,7 @@ async function getAllUsersFromCSV() {
       secureOptions: { rejectUnauthorized: false }
     });
     
+    // Try to navigate to users directory
     try {
       await client.cd('users');
     } catch (err) {
@@ -174,6 +193,7 @@ async function getAllUsersFromCSV() {
       return [];
     }
     
+    // Check if users.csv exists
     const files = await client.list();
     const csvExists = files.some(file => file.name === 'users.csv');
     
@@ -182,13 +202,18 @@ async function getAllUsersFromCSV() {
       return [];
     }
     
+    // Download the CSV file
     console.log("Downloading users.csv...");
     await client.downloadTo(tempFilePath, 'users.csv');
     
+    // Read and parse the CSV file
     const fileContent = fs.readFileSync(tempFilePath, 'utf8');
     const rows = fileContent.split('\n').filter(row => row.trim() !== '');
     
+    // First row is headers, skip it
     const headers = rows[0].split(',');
+    
+    // Parse the rest of the rows into user objects
     const users = [];
     for (let i = 1; i < rows.length; i++) {
       const values = rows[i].split(',');
@@ -209,11 +234,13 @@ async function getAllUsersFromCSV() {
     console.error('Error getting users from CSV:', error);
     throw error;
   } finally {
+    // Clean up temporary file
     if (fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
       console.log("Deleted temporary download file");
     }
     
+    // Close FTP connection
     try {
       await client.close();
       console.log("FTP connection closed");
@@ -247,17 +274,20 @@ router.post('/api/signup', async (req, res) => {
     const { email, password, personName, businessName } = req.body;
     console.log(`Signup attempt for: ${email}`);
     
+    // Basic validation
     if (!email || !password || !personName || !businessName) {
       console.log("Signup validation failed: Missing required fields");
       return res.status(400).json({ error: 'All fields are required' });
     }
     
+    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       console.log(`Invalid email format: ${email}`);
       return res.status(400).json({ error: 'Invalid email format' });
     }
     
+    // Validate business email
     const publicDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com', 'protonmail.com', 'mail.com'];
     const domain = email.split('@')[1];
     if (!domain || publicDomains.includes(domain.toLowerCase())) {
@@ -265,6 +295,7 @@ router.post('/api/signup', async (req, res) => {
       return res.status(400).json({ error: 'Only business email addresses are allowed' });
     }
     
+    // Check if user already exists
     console.log("Checking if user already exists...");
     let existingUser;
     try {
@@ -279,10 +310,12 @@ router.post('/api/signup', async (req, res) => {
       return res.status(400).json({ error: 'Email already registered' });
     }
     
+    // Hash password
     console.log("Hashing password...");
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     
+    // Create user object
     const newUser = {
       email,
       password: hashedPassword,
@@ -292,6 +325,8 @@ router.post('/api/signup', async (req, res) => {
     };
     
     console.log("User object created, saving to CSV via FTP...");
+    
+    // Save to CSV via FTP
     await appendUserToCSV(newUser);
     console.log(`User saved successfully: ${email}`);
     
@@ -311,11 +346,13 @@ router.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     console.log(`Login attempt for: ${email}`);
     
+    // Basic validation
     if (!email || !password) {
       console.log("Login validation failed: Missing email or password");
       return res.status(400).json({ error: 'Email and password are required' });
     }
     
+    // Find user
     console.log("Searching for user...");
     const user = await findUserByEmail(email);
     if (!user) {
@@ -323,6 +360,7 @@ router.post('/api/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
     
+    // Check password
     console.log("Verifying password...");
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -331,6 +369,9 @@ router.post('/api/login', async (req, res) => {
     }
     
     console.log(`User logged in successfully: ${email}`);
+    
+    // For a complete implementation, you should use JWT tokens here
+    // For simplicity, we're just returning user data (except password)
     const { password: _, ...userData } = user;
     
     res.json({
@@ -344,7 +385,7 @@ router.post('/api/login', async (req, res) => {
   }
 });
 
-// Password reset endpoint
+// Password reset endpoint (basic implementation)
 router.post('/api/reset-password', async (req, res) => {
   try {
     console.log("Received password reset request");
@@ -355,14 +396,21 @@ router.post('/api/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
     
+    // Find user
     console.log("Searching for user...");
     const user = await findUserByEmail(email);
     if (!user) {
       console.log(`User not found for password reset: ${email}`);
+      // Return success anyway for security
       return res.json({ message: 'If your email is registered, password reset instructions will be sent' });
     }
     
+    // In a real implementation, you would:
+    // 1. Generate a reset token
+    // 2. Save it with an expiration time
+    // 3. Send an email with reset link
     console.log(`Password reset requested for: ${email}`);
+    
     res.json({ message: 'If your email is registered, password reset instructions will be sent' });
   } catch (error) {
     console.error('Password reset error details:', error);
@@ -373,8 +421,7 @@ router.post('/api/reset-password', async (req, res) => {
 
 // Test FTP connection endpoint
 router.get('/api/test-ftp', async (req, res) => {
-    const client = new Client();
-
+  const client = new Client();
 
   client.ftp.verbose = true;
   
@@ -385,13 +432,16 @@ router.get('/api/test-ftp', async (req, res) => {
       secureOptions: { rejectUnauthorized: false }
     });
     
+    // Get current directory
     const currentDir = await client.pwd();
     
+    // Check if users directory exists
     let usersExists = false;
     try {
       await client.cd('users');
       usersExists = true;
       
+      // List files
       const files = await client.list();
       
       res.json({
