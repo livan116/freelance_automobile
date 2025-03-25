@@ -5,7 +5,7 @@ import img2 from "../assets/logo.png"
 import axios from 'axios';
 
 // Configure axios with your backend URL
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://67e301ce909f4618a5ed2dd9--cozy-cascaron-ce6d5e.netlify.app/api';
 
 const LoginPage = () => {
   const navigate = useNavigate();

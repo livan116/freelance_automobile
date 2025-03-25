@@ -71,7 +71,8 @@ async function ensureUserDirectoryExists(client) {
 
 // Function to check if users.csv exists and create it if not
 async function ensureUsersCSVExists(client) {
-  const tempFilePath = path.join(__dirname, 'temp_users_csv_check.csv');
+//   const tempFilePath = path.join(__dirname, 'temp_users_csv_check.csv');
+const tempFilePath = '/tmp/temp_users_download.csv';
   
   try {
     // List current directory to see if users.csv exists
