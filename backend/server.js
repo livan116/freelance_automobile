@@ -1,11 +1,12 @@
 // server.js
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const bcrypt = require('bcrypt');
-const fs = require('fs');
-const path = require('path');
-const basicFtp = require('basic-ftp');
+import express from 'express'
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import serverless from "serverless-http";
+import bcrypt from 'bcrypt';
+import fs from 'fs';
+import path from 'path';
+import { Client as basicFtp } from 'basic-ftp';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
